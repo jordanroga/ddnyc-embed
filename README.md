@@ -123,3 +123,21 @@ cp analysis/web/*.json embed/data/
 ```
 
 No rebuild of the JS is needed — it reads whatever is in `data/`.
+
+## Cache-busting after an update
+
+GitHub Pages serves assets with a ten-minute `max-age`, and browsers hold the
+bundle longer than that once it is in the disk cache. After pushing a change to
+`ddnyc-embed.js`, returning visitors can keep running the old copy — the JSON
+updates while the code does not.
+
+Bump a version query on the script tag in Webflow whenever the JS changes:
+
+```html
+<script src="https://jordanroga.github.io/ddnyc-embed/ddnyc-embed.js?v=3" defer></script>
+```
+
+The query string does not reach the filesystem; it only changes the cache key.
+Data files are fetched by the bundle and are not covered by this — for a forced
+data refresh, bump the script version too, since `data-base` is resolved from
+the script URL.
