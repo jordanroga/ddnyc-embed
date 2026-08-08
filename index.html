@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ddnyc-embed — local test harness</title>
+<style>
+  /* This page is a HOST-PAGE SIMULATION, not part of the bundle.
+     It deliberately sets an opinionated font and some aggressive global CSS
+     so you can confirm the widgets inherit the font but reject everything else. */
+  body{font-family:"Iowan Old Style",Palatino,Georgia,serif;
+       max-width:1100px;margin:0 auto;padding:32px 20px 80px;line-height:1.5;
+       background:#fcfcfd;color:#1b1d21}
+  h1{font-size:30px;margin:0 0 4px}
+  h2{font-size:19px;margin:44px 0 10px;padding-top:14px;border-top:2px solid #1b1d21}
+  .hint{font-size:13px;color:#767b84;margin:0 0 14px}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;
+       background:#eef0f3;padding:2px 6px;border-radius:4px}
+  /* hostile globals — widgets must be immune to these */
+  div{border-radius:0}
+  button{background:magenta!important;color:#fff}
+  input,select{border:3px dashed magenta}
+  ul{list-style:square}
+</style>
+</head>
+<body>
+
+<h1>ddnyc-embed — local test harness</h1>
+<p class="hint">
+  Host page uses a serif font and deliberately hostile global CSS (magenta buttons,
+  dashed inputs). Widgets should inherit the <em>font</em> and reject the rest.
+  Serve over HTTP — <code>python3 -m http.server 8000</code> — since the bundle fetches JSON.
+</p>
+
+<h2>ddnyc-summary</h2>
+<div id="ddnyc-summary"></div>
+
+<h2>ddnyc-chart-death-curve</h2>
+<div id="ddnyc-chart-death-curve"></div>
+
+<h2>ddnyc-chart-birth-curve</h2>
+<div id="ddnyc-chart-birth-curve"></div>
+
+<h2>ddnyc-chart-term-grid</h2>
+<div id="ddnyc-chart-term-grid"></div>
+
+<h2>ddnyc-chart-groups</h2>
+<div id="ddnyc-chart-groups"></div>
+
+<h2>ddnyc-chart-topics</h2>
+<div id="ddnyc-chart-topics"></div>
+
+<h2>ddnyc-chart-formats</h2>
+<div id="ddnyc-chart-formats"></div>
+
+<h2>ddnyc-chart-questions</h2>
+<div id="ddnyc-chart-questions"></div>
+
+<h2>ddnyc-ledger</h2>
+<div id="ddnyc-ledger"></div>
+
+<h2>ddnyc-caveats</h2>
+<div id="ddnyc-caveats"></div>
+
+<script src="ddnyc-embed.js" defer></script>
+</body>
+</html>
