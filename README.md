@@ -98,35 +98,44 @@ interaction, a tab panel), call `DDNYC.mount()` to pick up new divs.
 URL — useful when a 404 means the path is wrong.
 
 **Chart attribution.** Every chart bakes a source line into the SVG itself, so
-it survives being screenshotted. Add your byline with `data-credit`:
-
-```html
-<script src="https://jordanroga.github.io/ddnyc-embed/ddnyc-embed.js?v=2"
-        data-credit="Your Name · yoursite.com/the-post" defer></script>
-```
-
-That renders as `Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026 ·
-Your Name · yoursite.com/the-post`. With no `data-credit`, the corpus line
-appears alone — the bundle never invents a byline.
-
-**Deep links.** The ledger writes its state into a namespaced URL fragment:
+the credit survives being screenshotted and reposted:
 
 ```
-#ddnyc=q:hadoop|v:incorrect|so:speaker|y1:2014|y2:2019|u:1|o:439
+Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026
+  · hatched = underpowered (n<10) · Jordan Roga · jordanroga.com
+```
+
+Order is corpus, then the chart's own note, then the byline. The byline is
+compiled in, so nothing in Webflow can drop it. It names the domain rather than
+a post URL deliberately — a slug can change, and a screenshot outlives the link
+it was cropped from. To change it, edit `CREDIT` at the top of the bundle, or
+override per-page with `data-credit="…"` on the script tag (`data-credit=""`
+removes it).
+
+**Deep links.** The ledger stores its state in a single `ddnyc` **query
+parameter** — not the fragment, because this site uses `#s1`–`#s8` anchors for
+section nav and the two would overwrite each other:
+
+```
+/the-post?ddnyc=q%3Ahadoop%7Cso%3Aspeaker%7Co%3A101#s5
 ```
 
 Filters, sort, year range, the unattributed toggle, and the expanded row all
 restore on load, so a copied URL reproduces the exact view. Keys: `q` search,
 `s` status, `v` verdict, `t` topic, `c` claim type, `so` sort, `y1`/`y2` years,
-`u` unattributed, `o` open row. Values are percent-encoded, so a search term
-containing `|` or `:` round-trips. The token is authoritative — a key absent
-from it resets. Reset clears the fragment entirely.
+`u` unattributed, `o` open row.
 
-Any fragment your page already owns is preserved: an anchor becomes
-`#section-two&ddnyc=q:hadoop`. Note the converse — Webflow's own in-page nav
-links set the fragment to a bare `#section`, which drops the ledger token and
-leaves the current view in place until the next filter change rewrites it.
-A malformed token degrades to defaults rather than rendering an empty table.
+Everything else on the URL is left alone. The fragment passes through verbatim,
+so anchor nav keeps working and a filter change will not scroll the page; other
+query parameters (`utm_*`, campaign tags) are preserved untouched.
+
+Values are encoded twice — percent-encoded before joining, then again by
+`URLSearchParams` — so a search term containing the `|` or `:` delimiters
+round-trips intact. The token is authoritative: a key absent from it resets
+rather than lingering. Reset removes the parameter and leaves the rest of the
+URL alone. A malformed token degrades to defaults rather than rendering an
+empty table. Filter changes use `replaceState`, so they never pile up in the
+back button.
 
 ---
 

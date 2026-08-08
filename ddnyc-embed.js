@@ -29,12 +29,15 @@
     return src.replace(/[^/]*$/, '') + 'data/';
   })();
 
-  // Baked into every chart so the attribution survives a screenshot. The byline
-  // is supplied by the host page via data-credit and is left off entirely when
-  // unset — a chart should never carry an attribution nobody wrote.
-  //   <script src="…/ddnyc-embed.js" data-credit="Jane Doe · example.com/post">
+  // Baked into every chart so the attribution survives a screenshot. The domain
+  // is used rather than a post URL on purpose: a slug can change, and a
+  // screenshot outlives the link it was cropped from.
+  // data-credit on the script tag overrides this; data-credit="" removes it.
   var SOURCE_LINE = 'Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026';
-  var CREDIT = (SCRIPT && SCRIPT.getAttribute('data-credit')) || '';
+  var CREDIT = 'Jordan Roga · jordanroga.com';
+  if (SCRIPT && SCRIPT.hasAttribute('data-credit')) {
+    CREDIT = SCRIPT.getAttribute('data-credit') || '';
+  }
 
   /* ------------------------------------------------------------ data cache */
   var cache = {};
@@ -433,19 +436,28 @@ a{color:var(--accent)}
     root.appendChild(wrap);
     var $ = function (s) { return wrap.querySelector(s); };
 
-    /* ------------------------------------------------- URL hash deep-links */
-    // Ledger state is stored in a namespaced "ddnyc=" fragment token so a host
-    // page's own anchors survive. Values are percent-encoded, so a search term
-    // containing "|" or ":" round-trips intact.
+    /* ------------------------------------------------ URL query deep-links */
+    // State lives in one namespaced "ddnyc" query parameter, not the fragment:
+    // the host page uses the fragment for its own section anchors, and the two
+    // would overwrite each other. The fragment is preserved untouched on write,
+    // so anchor navigation and a shared filter URL coexist.
+    //
+    // Encoding is deliberately doubled. Values are percent-encoded before being
+    // joined with "|", then URLSearchParams encodes the whole token again on
+    // write and decodes one layer on read — so a search term containing the
+    // "|" or ":" delimiters survives the round trip intact.
+    var PARAM = 'ddnyc';
     var HMAP = [['q', 'q'], ['status', 's'], ['verdict', 'v'],
                 ['topic', 't'], ['type', 'c'], ['sort', 'so']];
     var SORTS = ['date', 'speaker', 'verdict', 'due'];
 
-    function readHash() {
-      var m = /(?:^|[#&])ddnyc=([^&]*)/.exec(location.hash || '');
-      if (!m) return null;
+    function readParams() {
+      var tok;
+      try { tok = new URLSearchParams(location.search).get(PARAM); }
+      catch (e) { return null; }
+      if (tok == null) return null;
       var o = {};
-      m[1].split('|').forEach(function (kv) {
+      tok.split('|').forEach(function (kv) {
         var i = kv.indexOf(':'); if (i < 0) return;
         try { o[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {}
       });
@@ -458,9 +470,9 @@ a{color:var(--accent)}
       $('#ua').checked = st.unattr;
       $('#yo').textContent = st.yFrom + '–' + st.yTo;
     }
-    function applyHash() {
-      var o = readHash(); if (!o) return false;
-      // The token is authoritative: clear first, so a key absent from the hash
+    function applyParams() {
+      var o = readParams(); if (!o) return false;
+      // The token is authoritative: clear first, so a key absent from it
       // resets rather than lingering from the previously rendered view.
       st.q = ''; st.status = ''; st.verdict = ''; st.topic = '';
       st.type = ''; st.sort = 'date'; st.open = null;
@@ -476,7 +488,7 @@ a{color:var(--accent)}
       syncControls();
       return true;
     }
-    function writeHash() {
+    function writeParams() {
       var parts = [];
       HMAP.forEach(function (p) {
         var v = st[p[0]];
@@ -487,12 +499,18 @@ a{color:var(--accent)}
       if (st.yTo !== 2026) parts.push('y2:' + st.yTo);
       if (st.unattr) parts.push('u:1');
       if (st.open != null) parts.push('o:' + st.open);
-      var rest = (location.hash || '').replace(/^#/, '').split('&')
-        .filter(function (s) { return s && s.indexOf('ddnyc=') !== 0; });
-      if (parts.length) rest.push('ddnyc=' + parts.join('|'));
-      var h = rest.join('&');
+      var sp;
+      try { sp = new URLSearchParams(location.search); } catch (e) { return; }
+      // Only our own parameter is touched; utm_* and anything else the host
+      // page or an ad platform put on the URL is carried through unchanged.
+      if (parts.length) sp.set(PARAM, parts.join('|'));
+      else sp['delete'](PARAM);
+      var qs = sp.toString();
       try {
-        history.replaceState(null, '', location.pathname + location.search + (h ? '#' + h : ''));
+        // location.hash is passed through verbatim so the page's §1–§8 anchors
+        // keep working while a filtered view stays shareable.
+        history.replaceState(null, '',
+          location.pathname + (qs ? '?' + qs : '') + location.hash);
       } catch (e) { /* file:// and sandboxed frames disallow replaceState */ }
     }
 
@@ -568,7 +586,7 @@ a{color:var(--accent)}
       $('#mt').hidden = rows.length > 0;
       Array.prototype.forEach.call(wrap.querySelectorAll('.sbtn'), function (b) {
         b.classList.toggle('on', b.dataset.s === st.sort); });
-      writeHash();
+      writeParams();
     }
     var t0, qEl = $('#q');
     // Read qEl.value, not e.target.value: this fires after the debounce, by which
@@ -602,15 +620,16 @@ a{color:var(--accent)}
       var id = +head.closest('.row').dataset.id;
       st.open = (st.open === id) ? null : id; render();
     });
-    // Boot from the hash when present, otherwise from defaults.
+    // Boot from the query parameter when present, otherwise from defaults.
     syncControls();
-    applyHash();
+    applyParams();
     render();
 
-    // Back/forward between shared links. replaceState does not fire this,
-    // so writeHash() cannot retrigger it.
-    window.addEventListener('hashchange', function () {
-      if (applyHash()) render();
+    // Back/forward onto a URL carrying different filters. replaceState neither
+    // creates history entries nor fires popstate, so writeParams() cannot
+    // retrigger this — filter changes stay out of the back stack entirely.
+    window.addEventListener('popstate', function () {
+      if (applyParams()) render();
     });
   }
 
