@@ -35,7 +35,6 @@
   //   <script src="…/ddnyc-embed.js" data-credit="Jane Doe · example.com/post">
   var SOURCE_LINE = 'Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026';
   var CREDIT = (SCRIPT && SCRIPT.getAttribute('data-credit')) || '';
-  if (CREDIT) SOURCE_LINE += ' · ' + CREDIT;
 
   /* ------------------------------------------------------------ data cache */
   var cache = {};
@@ -177,8 +176,13 @@ a{color:var(--accent)}
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * m;
   }
   function srcTag(svg, w, h, extra) {
+    // Order: corpus · chart-specific note · byline. The credit closes the line
+    // so it reads as attribution rather than as part of the chart's caveat.
+    var parts = [SOURCE_LINE];
+    if (extra) parts.push(extra);
+    if (CREDIT) parts.push(CREDIT);
     svg.appendChild(E('text', { x: w - 8, y: h - 6, 'text-anchor': 'end', class: 'src' },
-      extra ? SOURCE_LINE + ' · ' + extra : SOURCE_LINE));
+      parts.join(' · ')));
   }
   var PALETTE = ['#c04a3a', '#d08a3a', '#8a6a4a', '#6f7783', '#1d8a60',
                  '#2f6fb3', '#5a4a9a', '#a9781b', '#3f8f6f'];
