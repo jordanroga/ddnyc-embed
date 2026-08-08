@@ -97,6 +97,37 @@ interaction, a tab panel), call `DDNYC.mount()` to pick up new divs.
 `DDNYC.widgets` lists every supported id; `DDNYC.base` shows the resolved data
 URL — useful when a 404 means the path is wrong.
 
+**Chart attribution.** Every chart bakes a source line into the SVG itself, so
+it survives being screenshotted. Add your byline with `data-credit`:
+
+```html
+<script src="https://jordanroga.github.io/ddnyc-embed/ddnyc-embed.js?v=2"
+        data-credit="Your Name · yoursite.com/the-post" defer></script>
+```
+
+That renders as `Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026 ·
+Your Name · yoursite.com/the-post`. With no `data-credit`, the corpus line
+appears alone — the bundle never invents a byline.
+
+**Deep links.** The ledger writes its state into a namespaced URL fragment:
+
+```
+#ddnyc=q:hadoop|v:incorrect|so:speaker|y1:2014|y2:2019|u:1|o:439
+```
+
+Filters, sort, year range, the unattributed toggle, and the expanded row all
+restore on load, so a copied URL reproduces the exact view. Keys: `q` search,
+`s` status, `v` verdict, `t` topic, `c` claim type, `so` sort, `y1`/`y2` years,
+`u` unattributed, `o` open row. Values are percent-encoded, so a search term
+containing `|` or `:` round-trips. The token is authoritative — a key absent
+from it resets. Reset clears the fragment entirely.
+
+Any fragment your page already owns is preserved: an anchor becomes
+`#section-two&ddnyc=q:hadoop`. Note the converse — Webflow's own in-page nav
+links set the fragment to a bare `#section`, which drops the ledger token and
+leaves the current view in place until the next filter change rewrites it.
+A malformed token degrades to defaults rather than rendering an empty table.
+
 ---
 
 ## Local development

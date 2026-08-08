@@ -29,7 +29,13 @@
     return src.replace(/[^/]*$/, '') + 'data/';
   })();
 
+  // Baked into every chart so the attribution survives a screenshot. The byline
+  // is supplied by the host page via data-credit and is left off entirely when
+  // unset — a chart should never carry an attribution nobody wrote.
+  //   <script src="…/ddnyc-embed.js" data-credit="Jane Doe · example.com/post">
   var SOURCE_LINE = 'Data Driven NYC / MAD Podcast corpus — 518 talks, 2011–2026';
+  var CREDIT = (SCRIPT && SCRIPT.getAttribute('data-credit')) || '';
+  if (CREDIT) SOURCE_LINE += ' · ' + CREDIT;
 
   /* ------------------------------------------------------------ data cache */
   var cache = {};
@@ -423,6 +429,69 @@ a{color:var(--accent)}
     root.appendChild(wrap);
     var $ = function (s) { return wrap.querySelector(s); };
 
+    /* ------------------------------------------------- URL hash deep-links */
+    // Ledger state is stored in a namespaced "ddnyc=" fragment token so a host
+    // page's own anchors survive. Values are percent-encoded, so a search term
+    // containing "|" or ":" round-trips intact.
+    var HMAP = [['q', 'q'], ['status', 's'], ['verdict', 'v'],
+                ['topic', 't'], ['type', 'c'], ['sort', 'so']];
+    var SORTS = ['date', 'speaker', 'verdict', 'due'];
+
+    function readHash() {
+      var m = /(?:^|[#&])ddnyc=([^&]*)/.exec(location.hash || '');
+      if (!m) return null;
+      var o = {};
+      m[1].split('|').forEach(function (kv) {
+        var i = kv.indexOf(':'); if (i < 0) return;
+        try { o[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {}
+      });
+      return o;
+    }
+    function syncControls() {
+      $('#q').value = st.q; $('#fs').value = st.status; $('#fv').value = st.verdict;
+      $('#ft').value = st.topic; $('#fc').value = st.type;
+      $('#y1').value = st.yFrom; $('#y2').value = st.yTo;
+      $('#ua').checked = st.unattr;
+      $('#yo').textContent = st.yFrom + '–' + st.yTo;
+    }
+    function applyHash() {
+      var o = readHash(); if (!o) return false;
+      // The token is authoritative: clear first, so a key absent from the hash
+      // resets rather than lingering from the previously rendered view.
+      st.q = ''; st.status = ''; st.verdict = ''; st.topic = '';
+      st.type = ''; st.sort = 'date'; st.open = null;
+      HMAP.forEach(function (p) { if (o[p[1]] != null) st[p[0]] = o[p[1]]; });
+      if (SORTS.indexOf(st.sort) < 0) st.sort = 'date';
+      // Reject out-of-range or non-numeric years rather than rendering nothing.
+      var a = parseInt(o.y1, 10), b = parseInt(o.y2, 10);
+      st.yFrom = (a >= 2012 && a <= 2026) ? a : 2012;
+      st.yTo   = (b >= 2012 && b <= 2026) ? b : 2026;
+      if (st.yFrom > st.yTo) { st.yFrom = 2012; st.yTo = 2026; }
+      st.unattr = o.u === '1';
+      st.open = (o.o && /^\d+$/.test(o.o)) ? +o.o : null;
+      syncControls();
+      return true;
+    }
+    function writeHash() {
+      var parts = [];
+      HMAP.forEach(function (p) {
+        var v = st[p[0]];
+        if (!v || (p[0] === 'sort' && v === 'date')) return;
+        parts.push(p[1] + ':' + encodeURIComponent(v));
+      });
+      if (st.yFrom !== 2012) parts.push('y1:' + st.yFrom);
+      if (st.yTo !== 2026) parts.push('y2:' + st.yTo);
+      if (st.unattr) parts.push('u:1');
+      if (st.open != null) parts.push('o:' + st.open);
+      var rest = (location.hash || '').replace(/^#/, '').split('&')
+        .filter(function (s) { return s && s.indexOf('ddnyc=') !== 0; });
+      if (parts.length) rest.push('ddnyc=' + parts.join('|'));
+      var h = rest.join('&');
+      try {
+        history.replaceState(null, '', location.pathname + location.search + (h ? '#' + h : ''));
+      } catch (e) { /* file:// and sandboxed frames disallow replaceState */ }
+    }
+
     function match(p) {
       if (!st.unattr && p.unattributed) return false;
       if (st.status && p.status !== st.status) return false;
@@ -495,6 +564,7 @@ a{color:var(--accent)}
       $('#mt').hidden = rows.length > 0;
       Array.prototype.forEach.call(wrap.querySelectorAll('.sbtn'), function (b) {
         b.classList.toggle('on', b.dataset.s === st.sort); });
+      writeHash();
     }
     var t0, qEl = $('#q');
     // Read qEl.value, not e.target.value: this fires after the debounce, by which
@@ -519,9 +589,7 @@ a{color:var(--accent)}
     $('#rs').addEventListener('click', function () {
       st.q = ''; st.status = ''; st.verdict = ''; st.topic = ''; st.type = '';
       st.yFrom = 2012; st.yTo = 2026; st.unattr = false; st.sort = 'date'; st.open = null;
-      $('#q').value = ''; $('#fs').value = ''; $('#fv').value = ''; $('#ft').value = '';
-      $('#fc').value = ''; $('#y1').value = 2012; $('#y2').value = 2026;
-      $('#ua').checked = false; $('#yo').textContent = '2012–2026'; render();
+      syncControls(); render();
     });
     Array.prototype.forEach.call(wrap.querySelectorAll('.sbtn'), function (b) {
       b.addEventListener('click', function () { st.sort = b.dataset.s; render(); }); });
@@ -530,8 +598,16 @@ a{color:var(--accent)}
       var id = +head.closest('.row').dataset.id;
       st.open = (st.open === id) ? null : id; render();
     });
-    $('#y1').value = 2012; $('#y2').value = 2026; $('#yo').textContent = '2012–2026';
+    // Boot from the hash when present, otherwise from defaults.
+    syncControls();
+    applyHash();
     render();
+
+    // Back/forward between shared links. replaceState does not fire this,
+    // so writeHash() cannot retrigger it.
+    window.addEventListener('hashchange', function () {
+      if (applyHash()) render();
+    });
   }
 
   /* ---------------------------------------------------------------- mounts */
