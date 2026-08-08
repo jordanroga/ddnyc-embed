@@ -496,10 +496,12 @@ a{color:var(--accent)}
       Array.prototype.forEach.call(wrap.querySelectorAll('.sbtn'), function (b) {
         b.classList.toggle('on', b.dataset.s === st.sort); });
     }
-    var t0;
-    $('#q').addEventListener('input', function (e) {
+    var t0, qEl = $('#q');
+    // Read qEl.value, not e.target.value: this fires after the debounce, by which
+    // point a composed event's target has been retargeted to the shadow host.
+    qEl.addEventListener('input', function () {
       clearTimeout(t0);
-      t0 = setTimeout(function () { st.q = e.target.value.trim(); st.open = null; render(); }, 140);
+      t0 = setTimeout(function () { st.q = qEl.value.trim(); st.open = null; render(); }, 140);
     });
     [['#fs', 'status'], ['#fv', 'verdict'], ['#ft', 'topic'], ['#fc', 'type']].forEach(function (pair) {
       $(pair[0]).addEventListener('change', function (e) {
