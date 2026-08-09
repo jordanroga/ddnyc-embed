@@ -52,6 +52,10 @@ used once per page. Order and placement are entirely yours.
 | `<div id="ddnyc-chart-topics"></div>` | Bar chart — accuracy by topic; underpowered bars hatched |
 | `<div id="ddnyc-chart-formats"></div>` | Stacked columns — talks per year by format |
 | `<div id="ddnyc-chart-questions"></div>` | Dual-axis — questions per talk vs mean question length |
+| `<div id="ddnyc-chart-verdict-mix"></div>` | 100%-stacked verdict composition, infrastructure vs applications, with n labels |
+| `<div id="ddnyc-chart-predictions-per-talk"></div>` | Predictions per talk by year, with the 2020 format-era boundary marked |
+| `<div id="ddnyc-chart-duration-by-format"></div>` | Median duration by year — presentation+Q&A vs interview, thin cells omitted |
+| `<div id="ddnyc-chart-open-queue"></div>` | The 86 dated open predictions by due year, tail bucketed after an axis break |
 | `<div id="ddnyc-ledger"></div>` | **The full browsable ledger** — filter, search, sort, expandable rows |
 | `<div id="ddnyc-caveats"></div>` | Methodology caveats list (text comes from `corpus_meta.json`) |
 

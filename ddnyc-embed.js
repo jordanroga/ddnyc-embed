@@ -84,6 +84,9 @@ svg{width:100%;height:auto;display:block;font-family:inherit}
 .blab{font-size:12px;fill:var(--ink)}
 .blab.dim{fill:var(--dim)}
 .bval{font-size:11px;fill:var(--ink2);font-variant-numeric:tabular-nums}
+.seglab{font-size:10.5px;fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.rule{stroke:var(--dim);stroke-width:1.2}
+.brk{stroke:var(--rule);stroke-width:2}
 .btrack{fill:var(--track)}
 .mtitle{font-size:11.5px;font-weight:650;fill:var(--ink)}
 .mpeak{font-size:9.5px;fill:var(--dim)}
@@ -286,6 +289,155 @@ a{color:var(--accent)}
     });
     svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' },
       o.xLabel || '% rated correct'));
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
+    srcTag(svg, W, H, o.srcExtra);
+    root.appendChild(svg);
+  }
+
+  // Verdict colours, read from the same custom properties the ledger badges use
+  // so a host-page override recolours chart and table together.
+  var VERDICT_KEYS = ['correct', 'partially_correct', 'incorrect', 'unresolvable'];
+  var VERDICT_VAR = { correct: '--correct', partially_correct: '--partial',
+                      incorrect: '--incorrect', unresolvable: '--unres' };
+  function verdictFill(k) { return 'var(' + VERDICT_VAR[k] + ')'; }
+
+  /* 100%-stacked horizontal bars: composition within each group, not level.
+     Percentages are of the group's own n, so the rows are directly comparable
+     even though the groups differ in size. */
+  function propBars(root, o) {
+    var rows = o.rows, W = 760, rh = 54, M = { t: 46, r: 20, b: 58, l: 150 };
+    var H = M.t + rows.length * rh + M.b, iw = W - M.l - M.r;
+    var svg = svgEl(W, H);
+    var x = function (p) { return M.l + (p / 100) * iw; };
+    for (var p = 0; p <= 100; p += 25) {
+      svg.appendChild(E('line', { x1: x(p), x2: x(p), y1: M.t - 8,
+        y2: M.t + rows.length * rh - 12, class: 'grid' }));
+      svg.appendChild(E('text', { x: x(p), y: M.t - 14, 'text-anchor': 'middle', class: 'tick' }, p + '%'));
+    }
+    rows.forEach(function (r, i) {
+      var yy = M.t + i * rh, bh = rh - 24;
+      var total = VERDICT_KEYS.reduce(function (a, k) { return a + (r.counts[k] || 0); }, 0);
+      svg.appendChild(E('text', { x: M.l - 12, y: yy + bh / 2 + 1, 'text-anchor': 'end',
+        class: r.under ? 'blab dim' : 'blab' }, r.label));
+      svg.appendChild(E('text', { x: M.l - 12, y: yy + bh / 2 + 15, 'text-anchor': 'end', class: 'bval' },
+        'n=' + total + (r.under ? ' — underpowered' : '')));
+      var acc = 0;
+      VERDICT_KEYS.forEach(function (k) {
+        var v = r.counts[k] || 0;
+        if (!v) return;
+        var pc = 100 * v / total, x0 = x(acc), x1 = x(acc + pc);
+        svg.appendChild(E('rect', { x: x0, y: yy, width: Math.max(1, x1 - x0), height: bh,
+          fill: verdictFill(k), 'fill-opacity': r.under ? .4 : 1 }));
+        // Label inside the segment only when it will actually fit.
+        if (x1 - x0 > 42)
+          svg.appendChild(E('text', { x: (x0 + x1) / 2, y: yy + bh / 2 + 4,
+            'text-anchor': 'middle', class: 'seglab' }, Math.round(pc) + '%'));
+        acc += pc;
+      });
+    });
+    var lx = M.l;
+    VERDICT_KEYS.forEach(function (k) {
+      svg.appendChild(E('rect', { x: lx, y: 10, width: 11, height: 11, rx: 2, fill: verdictFill(k) }));
+      svg.appendChild(E('text', { x: lx + 16, y: 20, class: 'legend' }, k.replace(/_/g, ' ')));
+      lx += 26 + k.length * 6.2;
+    });
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 26, class: 'src' }, o.note));
+    srcTag(svg, W, H, o.srcExtra);
+    root.appendChild(svg);
+  }
+
+  /* Vertical columns with an optional era boundary rule. */
+  function columnChart(root, o) {
+    var W = 760, H = o.height || 340, M = { t: 30, r: 16, b: 56, l: 54 };
+    var vals = o.values, labels = o.labels, iw = W - M.l - M.r, ih = H - M.t - M.b;
+    var ymax = o.yMax || nice(Math.max.apply(null, vals));
+    var step = iw / vals.length, bw = Math.min(38, step * .68);
+    var x = function (i) { return M.l + (i + .5) * step; };
+    var y = function (v) { return M.t + ih - (v / ymax) * ih; };
+    var svg = svgEl(W, H);
+    for (var i = 0; i <= 4; i++) {
+      var v = (ymax / 4) * i;
+      svg.appendChild(E('line', { x1: M.l, x2: W - M.r, y1: y(v), y2: y(v), class: 'grid' }));
+      svg.appendChild(E('text', { x: M.l - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' },
+        String(+v.toFixed(ymax < 5 ? 1 : 0))));
+    }
+    if (o.boundaryIndex != null && o.boundaryIndex > 0) {
+      var bx = M.l + o.boundaryIndex * step;
+      svg.appendChild(E('line', { x1: bx, x2: bx, y1: M.t - 6, y2: M.t + ih,
+        class: 'rule', 'stroke-dasharray': '5 4' }));
+      svg.appendChild(E('text', { x: bx + 6, y: M.t + 6, class: 'legend' }, o.boundaryLabel || ''));
+    }
+    vals.forEach(function (v, i) {
+      var thin = o.thin && o.thin.indexOf(labels[i]) >= 0;
+      svg.appendChild(E('rect', { x: x(i) - bw / 2, y: y(v), width: bw,
+        height: Math.max(1, M.t + ih - y(v)), rx: 2,
+        fill: o.color || PALETTE[5], 'fill-opacity': thin ? .35 : 1 }));
+      if (o.valueLabels && v > 0)
+        svg.appendChild(E('text', { x: x(i), y: y(v) - 5, 'text-anchor': 'middle', class: 'barvalue' },
+          o.fmt ? o.fmt(v) : v));
+      if (i % (o.tickEvery || 1) === 0 || i === vals.length - 1)
+        svg.appendChild(E('text', { x: x(i), y: H - M.b + 18, 'text-anchor': 'middle', class: 'tick' },
+          labels[i]));
+    });
+    svg.appendChild(E('text', { x: 14, y: M.t + ih / 2, class: 'axis', 'text-anchor': 'middle',
+      transform: 'rotate(-90 14 ' + (M.t + ih / 2) + ')' }, o.yLabel || ''));
+    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' },
+      o.xLabel || 'Year'));
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
+    srcTag(svg, W, H, o.srcExtra);
+    root.appendChild(svg);
+  }
+
+  /* Line chart that BREAKS at nulls instead of interpolating, so a suppressed
+     thin cell reads as absent data rather than as a measured value. */
+  function gapLineChart(root, o) {
+    var W = 760, H = o.height || 340, M = { t: 30, r: 16, b: 56, l: 54 };
+    var yrs = o.years, iw = W - M.l - M.r, ih = H - M.t - M.b;
+    var flat = o.series.reduce(function (a, s) {
+      return a.concat(s.values.filter(function (v) { return v != null; })); }, []);
+    var ymax = o.yMax || nice(Math.max.apply(null, flat));
+    var x = function (i) { return M.l + (i / (yrs.length - 1)) * iw; };
+    var y = function (v) { return M.t + ih - (v / ymax) * ih; };
+    var svg = svgEl(W, H);
+    for (var i = 0; i <= 4; i++) {
+      var v = (ymax / 4) * i;
+      svg.appendChild(E('line', { x1: M.l, x2: W - M.r, y1: y(v), y2: y(v), class: 'grid' }));
+      svg.appendChild(E('text', { x: M.l - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' },
+        String(Math.round(v))));
+    }
+    yrs.forEach(function (yr, i) {
+      if (i % 2 === 0 || i === yrs.length - 1)
+        svg.appendChild(E('text', { x: x(i), y: H - M.b + 18, 'text-anchor': 'middle', class: 'tick' }, yr));
+    });
+    o.series.forEach(function (s, si) {
+      var col = s.color || PALETTE[si % PALETTE.length], seg = [];
+      var flush = function () {
+        if (seg.length > 1)
+          svg.appendChild(E('path', { d: 'M' + seg.map(function (p) { return p.join(' '); }).join('L'),
+            class: 'line', stroke: col, 'stroke-width': 2.2 }));
+        else if (seg.length === 1)   // lone point with gaps either side
+          svg.appendChild(E('circle', { cx: seg[0][0], cy: seg[0][1], r: 3, fill: col }));
+        seg = [];
+      };
+      s.values.forEach(function (v, i) {
+        if (v == null) { flush(); return; }
+        seg.push([x(i), y(v)]);
+      });
+      flush();
+      s.values.forEach(function (v, i) {
+        if (v != null) svg.appendChild(E('circle', { cx: x(i), cy: y(v), r: 2.6, fill: col }));
+      });
+    });
+    var lx = M.l;
+    o.series.forEach(function (s, si) {
+      var col = s.color || PALETTE[si % PALETTE.length];
+      svg.appendChild(E('rect', { x: lx, y: 10, width: 11, height: 11, rx: 2, fill: col }));
+      svg.appendChild(E('text', { x: lx + 16, y: 20, class: 'legend' }, s.name));
+      lx += 26 + s.name.length * 6.2;
+    });
+    svg.appendChild(E('text', { x: 14, y: M.t + ih / 2, class: 'axis', 'text-anchor': 'middle',
+      transform: 'rotate(-90 14 ' + (M.t + ih / 2) + ')' }, o.yLabel || ''));
+    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' }, 'Year'));
     if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
     srcTag(svg, W, H, o.srcExtra);
     root.appendChild(svg);
@@ -730,6 +882,54 @@ a{color:var(--accent)}
                    { name: 'Audience mean words', values: F.audience_mean_words }],
           leftLabel: 'Questions per talk', rightLabel: 'Mean words per question',
           srcExtra: 'verbatim questions only' });
+      });
+    },
+    'ddnyc-chart-verdict-mix': function (box) {
+      return load('infra_vs_apps').then(function (IA) {
+        propBars(box, {
+          rows: [
+            { label: 'infrastructure', counts: IA.infrastructure.counts },
+            { label: 'applications', counts: IA.applications.counts },
+            { label: 'tagged both', counts: IA.both_excluded.counts,
+              under: IA.both_excluded.n < 20 }
+          ],
+          note: 'proportions of each group; "tagged both" is excluded from the comparison',
+          srcExtra: 'grouped topic tags' });
+      });
+    },
+    'ddnyc-chart-predictions-per-talk': function (box) {
+      return load('chart_yield').then(function (Y) {
+        columnChart(box, { values: Y.per_talk, labels: Y.years,
+          yLabel: 'Predictions per talk', tickEvery: 1, thin: Y.thin_years,
+          boundaryIndex: Y.years.indexOf(Y.boundary_year),
+          boundaryLabel: Y.boundary_year + ': ' + Y.boundary_label,
+          note: 'faded bar: fewer than 3 talks that year',
+          srcExtra: 'all extracted predictions, scored or not' });
+      });
+    },
+    'ddnyc-chart-duration-by-format': function (box) {
+      return load('chart_duration').then(function (D) {
+        gapLineChart(box, { years: D.years,
+          series: [
+            { name: D.labels.presentation_plus_qa,
+              values: D.series.presentation_plus_qa, color: PALETTE[5] },
+            { name: D.labels.interview, values: D.series.interview, color: PALETTE[0] }
+          ],
+          yLabel: 'Median duration (minutes)',
+          note: 'cells with fewer than ' + D.min_cell +
+                ' talks are omitted, breaking the line; panels excluded (n=16)',
+          srcExtra: 'two densest formats only' });
+      });
+    },
+    'ddnyc-chart-open-queue': function (box) {
+      return load('chart_queue').then(function (Q) {
+        columnChart(box, {
+          values: Q.head_counts.concat([Q.tail.count]),
+          labels: Q.head_years.map(String).concat([Q.tail.label]),
+          yLabel: 'Predictions falling due', xLabel: 'Due year',
+          valueLabels: true, tickEvery: 1,
+          boundaryIndex: Q.head_years.length, boundaryLabel: 'axis break',
+          note: Q.note, srcExtra: Q.total + ' predictions with a parseable due date' });
       });
     },
     'ddnyc-ledger': function (box) {
