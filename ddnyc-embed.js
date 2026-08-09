@@ -504,12 +504,24 @@ a{color:var(--accent)}
       if (i % 2 === 0 || i === yrs.length - 1)
         svg.appendChild(E('text', { x: x(i), y: H - M.b + 18, 'text-anchor': 'middle', class: 'tick' }, yv));
     });
-    var bw = Math.min(26, (iw / yrs.length) * .6);
-    o.left.values.forEach(function (v, i) {
-      if (v == null) return;
-      svg.appendChild(E('rect', { x: x(i) - bw / 2, y: yl(v), width: bw, height: M.t + ih - yl(v),
-        fill: PALETTE[5], 'fill-opacity': .5 }));
-    });
+    if (o.leftAs === 'line') {
+      // Drawn heavier than the right-hand series: the left axis carries the
+      // claim, and the secondary line is there to be compared against it.
+      var lpts = [];
+      o.left.values.forEach(function (v, i) { if (v != null) lpts.push([x(i), yl(v)]); });
+      svg.appendChild(E('path', { d: 'M' + lpts.map(function (p) {
+        return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L'),
+        class: 'line', stroke: PALETTE[5], 'stroke-width': 3 }));
+      lpts.forEach(function (p) {
+        svg.appendChild(E('circle', { cx: p[0], cy: p[1], r: 3.4, fill: PALETTE[5] })); });
+    } else {
+      var bw = Math.min(26, (iw / yrs.length) * .6);
+      o.left.values.forEach(function (v, i) {
+        if (v == null) return;
+        svg.appendChild(E('rect', { x: x(i) - bw / 2, y: yl(v), width: bw, height: M.t + ih - yl(v),
+          fill: PALETTE[5], 'fill-opacity': .5 }));
+      });
+    }
     o.rights.forEach(function (s, si) {
       var col = PALETTE[si], pts = [];
       s.values.forEach(function (v, i) { if (v != null) pts.push([x(i), yr2(v)]); });
@@ -875,13 +887,20 @@ a{color:var(--accent)}
       });
     },
     'ddnyc-chart-questions': function (box) {
-      return load('format_timeline').then(function (F) {
-        dualAxis(box, { years: F.years,
-          left: { name: 'Questions per talk', values: F.matt_q_per_talk },
-          rights: [{ name: 'Host mean words', values: F.matt_mean_words },
-                   { name: 'Audience mean words', values: F.audience_mean_words }],
-          leftLabel: 'Questions per talk', rightLabel: 'Mean words per question',
-          srcExtra: 'verbatim questions only' });
+      // Rate is the primary series. Per-talk is kept as the secondary line
+      // precisely so the divergence is visible: the two tracked each other
+      // until talks began lengthening, after which only per-talk climbs.
+      // Question *word count* is deliberately not plotted — transcripts switch
+      // from unpunctuated ASR to punctuated at 2025, which moves words-per-
+      // question far more than any change in how the questions were asked.
+      return load('chart_question_rate').then(function (Q) {
+        dualAxis(box, { years: Q.years,
+          left: { name: 'Questions per minute', values: Q.q_per_min },
+          rights: [{ name: 'Questions per talk', values: Q.q_per_talk }],
+          leftAs: 'line',
+          leftLabel: 'Questions per minute', rightLabel: 'Questions per talk',
+          srcExtra: 'interviews only, verbatim questions, cells under ' +
+                    Q.min_talks + ' talks omitted' });
       });
     },
     'ddnyc-chart-verdict-mix': function (box) {
