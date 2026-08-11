@@ -48,6 +48,7 @@ used once per page. Order and placement are entirely yours.
 | `<div id="ddnyc-chart-death-curve"></div>` | Line chart — hadoop, data scientist, big data, data lake (per 10k words) |
 | `<div id="ddnyc-chart-birth-curve"></div>` | Line chart — token, gpu, inference, agentic, evals (same y-scale as above) |
 | `<div id="ddnyc-chart-term-grid"></div>` | Small-multiples grid, 12 terms, full arcs with peak labels |
+| `<div id="ddnyc-chart-term-grid-all"></div>` | All 47 terms as small multiples, sorted by peak year — collapsed behind a toggle |
 | `<div id="ddnyc-chart-groups"></div>` | Bar chart — infrastructure vs applications accuracy, with n and z-test |
 | `<div id="ddnyc-chart-topics"></div>` | Bar chart — accuracy by topic; underpowered bars hatched |
 | `<div id="ddnyc-chart-formats"></div>` | Stacked columns — talks per year by format |
@@ -128,6 +129,10 @@ Filters, sort, year range, the unattributed toggle, and the expanded row all
 restore on load, so a copied URL reproduces the exact view. Keys: `q` search,
 `s` status, `v` verdict, `t` topic, `c` claim type, `so` sort, `y1`/`y2` years,
 `u` unattributed, `o` open row.
+
+The all-terms grid uses its own parameter, `ddnyc_terms=1`, so a link to the
+expanded grid arrives expanded. The two are independent — changing a ledger
+filter leaves `ddnyc_terms` alone and vice versa.
 
 Everything else on the URL is left alone. The fragment passes through verbatim,
 so anchor nav keeps working and a filter change will not scroll the page; other

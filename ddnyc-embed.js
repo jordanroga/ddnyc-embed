@@ -52,6 +52,26 @@
     return cache[name];
   }
 
+  /* ------------------------------------------------- shared URL query state */
+  // Widgets that persist state use their own top-level query parameter rather
+  // than sharing one token, so each can rewrite its own key without having to
+  // know about the others. Everything else on the URL — the fragment the host
+  // page uses for section anchors, utm_* tags — is passed through untouched.
+  function getParam(name) {
+    try { return new URLSearchParams(location.search).get(name); }
+    catch (e) { return null; }
+  }
+  function setParam(name, value) {
+    var sp;
+    try { sp = new URLSearchParams(location.search); } catch (e) { return; }
+    if (value == null) sp['delete'](name); else sp.set(name, value);
+    var qs = sp.toString();
+    try {
+      history.replaceState(null, '',
+        location.pathname + (qs ? '?' + qs : '') + location.hash);
+    } catch (e) { /* file:// and sandboxed frames disallow replaceState */ }
+  }
+
   /* ---------------------------------------------------------------- styles */
   /* Scoped inside each shadow root. Deliberately sets no font-family on the
      host so the widget inherits the surrounding page's typeface. */
@@ -91,6 +111,16 @@ svg{width:100%;height:auto;display:block;font-family:inherit}
 .mtitle{font-size:11.5px;font-weight:650;fill:var(--ink)}
 .mpeak{font-size:9.5px;fill:var(--dim)}
 .grid-wrap{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+/* The 47-panel appendix packs tighter than the curated grid; below 420px it
+   collapses to a single column, where a 200px-wide panel would otherwise
+   force the peak label to overlap the term name. */
+.grid-wrap.dense{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px}
+@media (max-width:420px){.grid-wrap.dense{grid-template-columns:1fr}}
+.tgl{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.tgl button{padding:8px 14px;border:1px solid var(--rule);background:var(--panel);
+  border-radius:20px;cursor:pointer;color:var(--ink);font-size:13.5px;font-weight:600}
+.tgl button:hover{border-color:var(--accent);color:var(--accent)}
+.tgl span{font-size:12.5px;color:var(--dim)}
 .grid-wrap svg{background:var(--panel);border:1px solid var(--rule);border-radius:8px}
 .stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
 .stat{display:flex;flex-direction:column;gap:2px}
@@ -236,7 +266,7 @@ a{color:var(--accent)}
 
   function smallMultiples(root, o) {
     var wrap = document.createElement('div');
-    wrap.className = 'grid-wrap';
+    wrap.className = 'grid-wrap' + (o.dense ? ' dense' : '');
     o.items.forEach(function (it, idx) {
       var W = 240, H = 120, M = { t: 22, r: 8, b: 20, l: 8 };
       var iw = W - M.l - M.r, ih = H - M.t - M.b, yrs = o.years;
@@ -259,6 +289,13 @@ a{color:var(--accent)}
       wrap.appendChild(svg);
     });
     root.appendChild(wrap);
+    // One attribution strip under the grid rather than per panel — repeating it
+    // 47 times would be noise, but a screenshot of the grid still needs to
+    // carry its source, so it lives in an SVG rather than in HTML text.
+    var strip = svgEl(760, 14);
+    srcTag(strip, 760, 20, o.srcExtra);
+    strip.setAttribute('style', 'margin-top:6px');
+    root.appendChild(strip);
   }
 
   function barChart(root, o) {
@@ -852,10 +889,57 @@ a{color:var(--accent)}
       return load('terms').then(function (T) {
         var names = ['big data', 'hadoop', 'data scientist', 'spark', 'machine learning',
           'deep learning', 'llm', 'gpt', 'agentic', 'gpu', 'token', 'reinforcement learning'];
-        smallMultiples(box, { years: T.years,
+        smallMultiples(box, { years: T.years, srcExtra: '12 selected terms',
           items: names.filter(function (n) { return T.terms[n]; }).map(function (n) {
             return { name: n, values: T.terms[n].per10k, peak: T.terms[n].peak,
               peakYear: T.terms[n].peak_year }; }) });
+      });
+    },
+    'ddnyc-chart-term-grid-all': function (box) {
+      // Appendix to the curated 12-term grid: every term in the dataset, sorted
+      // by peak year so the grid reads as a chronological sweep. Collapsed by
+      // default — expanded it is a wall, and only a reader who wants it clicks.
+      // State lives in its own query parameter so a link to the expanded grid
+      // arrives expanded; it does not touch the ledger's parameter or the
+      // fragment the host page uses for section anchors.
+      var KEY = 'ddnyc_terms';
+      return load('terms').then(function (T) {
+        var items = Object.keys(T.terms).map(function (n) {
+          var v = T.terms[n];
+          return { name: n, values: v.per10k, peak: v.peak, peakYear: v.peak_year };
+        }).sort(function (a, b) {
+          return (a.peakYear - b.peakYear) || (b.peak - a.peak) ||
+                 a.name.localeCompare(b.name);
+        });
+        var bar = document.createElement('div');
+        bar.className = 'tgl';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        var note = document.createElement('span');
+        var panel = document.createElement('div');
+        bar.appendChild(btn); bar.appendChild(note);
+        box.appendChild(bar); box.appendChild(panel);
+
+        function draw(open) {
+          btn.textContent = open ? 'Hide all ' + items.length + ' terms'
+                                 : 'Show all ' + items.length + ' terms';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          note.textContent = open ? 'sorted by peak year, earliest first' : '';
+          panel.innerHTML = '';
+          if (open) smallMultiples(panel, { years: T.years, items: items, dense: true,
+            srcExtra: 'all ' + items.length + ' terms, sorted by peak year' });
+        }
+        var open = getParam(KEY) === '1';
+        draw(open);
+        btn.addEventListener('click', function () {
+          open = !open;
+          setParam(KEY, open ? '1' : null);
+          draw(open);
+        });
+        window.addEventListener('popstate', function () {
+          var want = getParam(KEY) === '1';
+          if (want !== open) { open = want; draw(open); }
+        });
       });
     },
     'ddnyc-chart-groups': function (box) {
