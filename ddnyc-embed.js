@@ -282,10 +282,10 @@ a{color:var(--accent)}
         'L' + x(0).toFixed(1) + ',' + y(0).toFixed(1) + 'Z', fill: col, 'fill-opacity': .16 }));
       svg.appendChild(E('path', { d: dLine, class: 'line', stroke: col, 'stroke-width': 1.8 }));
       svg.appendChild(E('text', { x: M.l, y: 12, class: 'mtitle' }, it.name));
-      // Two decimals in the dense 47-panel grid, where a third digit is noise at
-      // that size. The curated grid keeps the source precision.
+      // Two decimals everywhere: a third digit overstates the precision of a
+      // per-10k rate, and both grids appear on the same page.
       svg.appendChild(E('text', { x: W - M.r, y: 12, 'text-anchor': 'end', class: 'mpeak' },
-        'peak ' + it.peakYear + ' · ' + (o.dense ? (+it.peak).toFixed(2) : it.peak)));
+        'peak ' + it.peakYear + ' · ' + (+it.peak).toFixed(2)));
       svg.appendChild(E('text', { x: M.l, y: H - 6, class: 'tick' }, yrs[0]));
       svg.appendChild(E('text', { x: W - M.r, y: H - 6, 'text-anchor': 'end', class: 'tick' }, yrs[yrs.length - 1]));
       wrap.appendChild(svg);
