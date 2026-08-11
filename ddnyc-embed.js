@@ -123,6 +123,9 @@ svg{width:100%;height:auto;display:block;font-family:inherit}
 .tgl span{font-size:12.5px;color:var(--dim)}
 .grid-wrap svg{background:var(--panel);border:1px solid var(--rule);border-radius:8px}
 .stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+/* HTML counterpart of the SVG .src line. The stat row is a likely screenshot
+   crop, so it carries the same attribution the charts bake in. */
+.credit{font-size:9.5px;color:var(--dim);margin-top:11px;line-height:1.45}
 .stat{display:flex;flex-direction:column;gap:2px}
 .stat b{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:600}
@@ -860,7 +863,8 @@ a{color:var(--accent)}
           ['Not yet due', m.too_early_with_due], ['Years', m.year_min + '–' + m.year_max]];
         box.innerHTML = '<div class="stats">' + cells.map(function (c) {
           return '<div class="stat"><b>' + (typeof c[1] === 'number' ? c[1].toLocaleString('en-US') : c[1]) +
-            '</b><span>' + c[0] + '</span></div>'; }).join('') + '</div>';
+            '</b><span>' + c[0] + '</span></div>'; }).join('') + '</div>' +
+          '<div class="credit">' + esc(SOURCE_LINE + (CREDIT ? ' · ' + CREDIT : '')) + '</div>';
       });
     },
     'ddnyc-chart-death-curve': function (box) {
