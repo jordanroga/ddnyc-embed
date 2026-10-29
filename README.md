@@ -157,10 +157,11 @@ cd embed
 python3 -m http.server 8000
 ```
 
-Then open <http://localhost:8000/>. `index.html` mounts all ten widgets and
+Then open <http://localhost:8000/test.html>. `test.html` mounts every widget and
 deliberately applies a serif font plus hostile global CSS (magenta buttons,
 dashed inputs) so you can confirm the widgets inherit the font and reject
-everything else.
+everything else. `index.html` is the public page served at the repo's GitHub
+Pages URL.
 
 ## Updating the data
 

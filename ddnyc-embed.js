@@ -76,7 +76,7 @@
   /* Scoped inside each shadow root. Deliberately sets no font-family on the
      host so the widget inherits the surrounding page's typeface. */
   var CSS = `
-:host{all:initial;font-family:inherit;color:var(--ddnyc-ink,#16181c);display:block;
+:host{all:initial;font-family:inherit;color:var(--ink);display:block;
   --ink:var(--ddnyc-ink,#16181c);--ink2:var(--ddnyc-ink-2,#454c57);--dim:var(--ddnyc-dim,#6f7783);
   --rule:var(--ddnyc-rule,#e0e3e9);--rule2:var(--ddnyc-rule-2,#edeff3);
   --panel:var(--ddnyc-panel,#fff);--accent:var(--ddnyc-accent,#2f5fb3);
@@ -104,6 +104,7 @@ svg{width:100%;height:auto;display:block;font-family:inherit}
 .blab{font-size:12px;fill:var(--ink)}
 .blab.dim{fill:var(--dim)}
 .bval{font-size:11px;fill:var(--ink2);font-variant-numeric:tabular-nums}
+.barvalue{font-size:11.5px;fill:var(--ink2);font-weight:600;font-variant-numeric:tabular-nums}
 .seglab{font-size:10.5px;fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 .rule{stroke:var(--dim);stroke-width:1.2}
 .brk{stroke:var(--rule);stroke-width:2}
@@ -304,7 +305,11 @@ a{color:var(--accent)}
   }
 
   function barChart(root, o) {
-    var rows = o.rows, W = 760, rh = 34, M = { t: 40, r: 96, b: 46, l: 200 };
+    // Room on the right for the longer "underpowered" label, and an extra line
+    // at the bottom so a chart note never collides with the source line.
+    var anyUnder = o.rows.some(function (r) { return r.under; });
+    var rows = o.rows, W = 760, rh = 34,
+        M = { t: 40, r: anyUnder ? 132 : 96, b: o.note ? 62 : 46, l: 200 };
     var H = M.t + rows.length * rh + M.b, iw = W - M.l - M.r;
     var svg = svgEl(W, H);
     var x = function (v) { return M.l + (v / 100) * iw; };
@@ -329,9 +334,9 @@ a{color:var(--accent)}
       svg.appendChild(E('text', { x: W - M.r + 8, y: yy + bh - 3, class: 'bval' },
         r.under ? 'n=' + r.n + ' — underpowered' : r.pct.toFixed(1) + '%  (n=' + r.n + ')'));
     });
-    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' },
+    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - (o.note ? 40 : 24), 'text-anchor': 'middle', class: 'axis' },
       o.xLabel || '% rated correct'));
-    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 22, class: 'src' }, o.note));
     srcTag(svg, W, H, o.srcExtra);
     root.appendChild(svg);
   }
@@ -390,7 +395,8 @@ a{color:var(--accent)}
 
   /* Vertical columns with an optional era boundary rule. */
   function columnChart(root, o) {
-    var W = 760, H = o.height || 340, M = { t: 30, r: 16, b: 56, l: 54 };
+    var nl = o.note ? 16 : 0;   // extra line so a note never collides with the source line
+    var W = 760, H = (o.height || 340) + nl, M = { t: 30, r: 16, b: 56 + nl, l: 54 };
     var vals = o.values, labels = o.labels, iw = W - M.l - M.r, ih = H - M.t - M.b;
     var ymax = o.yMax || nice(Math.max.apply(null, vals));
     var step = iw / vals.length, bw = Math.min(38, step * .68);
@@ -423,9 +429,9 @@ a{color:var(--accent)}
     });
     svg.appendChild(E('text', { x: 14, y: M.t + ih / 2, class: 'axis', 'text-anchor': 'middle',
       transform: 'rotate(-90 14 ' + (M.t + ih / 2) + ')' }, o.yLabel || ''));
-    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' },
+    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24 - nl, 'text-anchor': 'middle', class: 'axis' },
       o.xLabel || 'Year'));
-    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 22, class: 'src' }, o.note));
     srcTag(svg, W, H, o.srcExtra);
     root.appendChild(svg);
   }
@@ -433,7 +439,8 @@ a{color:var(--accent)}
   /* Line chart that BREAKS at nulls instead of interpolating, so a suppressed
      thin cell reads as absent data rather than as a measured value. */
   function gapLineChart(root, o) {
-    var W = 760, H = o.height || 340, M = { t: 30, r: 16, b: 56, l: 54 };
+    var nl = o.note ? 16 : 0;   // extra line so a note never collides with the source line
+    var W = 760, H = (o.height || 340) + nl, M = { t: 30, r: 16, b: 56 + nl, l: 54 };
     var yrs = o.years, iw = W - M.l - M.r, ih = H - M.t - M.b;
     var flat = o.series.reduce(function (a, s) {
       return a.concat(s.values.filter(function (v) { return v != null; })); }, []);
@@ -479,8 +486,8 @@ a{color:var(--accent)}
     });
     svg.appendChild(E('text', { x: 14, y: M.t + ih / 2, class: 'axis', 'text-anchor': 'middle',
       transform: 'rotate(-90 14 ' + (M.t + ih / 2) + ')' }, o.yLabel || ''));
-    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24, 'text-anchor': 'middle', class: 'axis' }, 'Year'));
-    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 8, class: 'src' }, o.note));
+    svg.appendChild(E('text', { x: M.l + iw / 2, y: H - 24 - nl, 'text-anchor': 'middle', class: 'axis' }, 'Year'));
+    if (o.note) svg.appendChild(E('text', { x: M.l, y: H - 22, class: 'src' }, o.note));
     srcTag(svg, W, H, o.srcExtra);
     root.appendChild(svg);
   }
